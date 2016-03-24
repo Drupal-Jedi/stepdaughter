@@ -6,7 +6,7 @@ Maybe. maintainer have vacations in Bali and has no chance to push it.
 
 We are don't intended to replace Drupal.org patches workflow, all patches required to be placed on Drupal.org first.
  
-http://i.imgur.com/HvV4qxl.jpg
+![Image of Stepdaughter](http://i.imgur.com/HvV4qxl.jpg)
  
 
 # How to use
