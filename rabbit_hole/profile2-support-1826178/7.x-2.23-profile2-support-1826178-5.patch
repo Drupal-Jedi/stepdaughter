@@ -1,0 +1,187 @@
+diff --git a/modules/rh_profile2/rh-profile2.js b/modules/rh_profile2/rh-profile2.js
+new file mode 100644
+index 0000000..4e0344a
+--- /dev/null
++++ b/modules/rh_profile2/rh-profile2.js
+@@ -0,0 +1,18 @@
++(function($) {
++
++Drupal.behaviors.rhProfile2 = {
++  attach: function (context, settings) {
++
++    // Set the summary for the settings form.
++    $('fieldset.rabbit-hole-settings-form').drupalSetSummary(function() {
++      var $rabbitHoleAction = $('.rabbit-hole-action-setting input:checked');
++
++      // Get the label of the selected action.
++      var summary = $('label[for=' + $rabbitHoleAction.attr('id') + ']').text();
++      return Drupal.checkPlain(summary);
++    });
++  
++  }
++}
++
++})(jQuery);
+diff --git a/modules/rh_profile2/rh_profile2.info b/modules/rh_profile2/rh_profile2.info
+new file mode 100644
+index 0000000..84efa68
+--- /dev/null
++++ b/modules/rh_profile2/rh_profile2.info
+@@ -0,0 +1,4 @@
++name = Rabbit Hole Profile2
++description = Adds Rabbit Hole functionality for profile2.
++core = 7.x
++dependencies[] = rabbit_hole
+diff --git a/modules/rh_profile2/rh_profile2.module b/modules/rh_profile2/rh_profile2.module
+new file mode 100644
+index 0000000..f8084ee
+--- /dev/null
++++ b/modules/rh_profile2/rh_profile2.module
+@@ -0,0 +1,147 @@
++<?php
++
++/**
++ * @file
++ * Main module file for Rabbit Hole Profile2 module.
++ *
++ * This module will add the Rabbit Hole functionality to Profile2 entities.
++ */
++
++/**
++ * Implements hook_rabbit_hole().
++ */
++function rh_profile2_rabbit_hole() {
++  return array(
++    'rh_profile2' => array(
++      'entity type' => 'profile2',
++      'base table' => 'profile',
++      'view path' => '%profile2_by_uid/view',
++    ),
++  );
++}
++
++/**
++ * Implements hook_form_FORM_ID_alter().
++ *
++ * This will add Rabbit Hole options to the Profile2 type form. These settings will
++ * be used as default for every Profile of this Profile type.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function rh_profile2_form_profile2_type_form_alter(&$form, $form_state) {
++  if (!user_access('administer rh_profile2') || empty($form_state['profile2_type']->type)) {
++    // The user doesn't have access.
++    return;
++  }
++
++  // Load the Rabbit Hole form, and add an extra javascript file that's needed
++  // for the fieldset summary.
++  rabbit_hole_form($form, 'profile2', $form_state['profile2_type']->type, 'rh_profile2');
++  if (isset($form['rabbit_hole'])) {
++    $form['#attached']['js'][] = drupal_get_path('module', 'rh_profile2') . '/rh-profile2.js';
++  }
++}
++
++/**
++ * Submit callback for the bundle form.
++ *
++ * This will set the values of the variables.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function rh_profile2_bundle_form_submit($form, $form_state) {
++  $values = $form_state['values'];
++
++  // Set the values of the variables.
++  variable_set('rh_profile2_override_' . $values['type'], $values['rh_profile2_override']);
++  variable_set('rh_profile2_action_' . $values['type'], $values['rh_profile2_action']);
++  variable_set('rh_profile2_redirect_' . $values['type'], $values['rh_profile2_redirect']);
++  variable_set('rh_profile2_redirect_response_' . $values['type'], $values['rh_profile2_redirect_response']);
++}
++
++/**
++ * Implements hook_form_FORM_ID_alter().
++ *
++ * This will add Rabbit Hole options to the Profile edit form. The user will be able to
++ * override the default Rabbit Hole options.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function rh_profile2_form_profile2_form_alter(&$form, $form_state) {
++  if (!user_access('administer rh_profile2')) {
++    // The user doesn't have access.
++    return;
++  }
++
++  // Load the Rabbit Hole form, and add an extra javascript file that's needed
++  // for the fieldset summary.
++  rabbit_hole_form($form, 'profile2', $form_state['profile2']->type, 'rh_profile2', $form_state['profile2']);
++  if (isset($form['rabbit_hole'])) {
++    $form['#attached']['js'][] = drupal_get_path('module', 'rh_profile2') . '/rh-profile2.js';
++
++    array_unshift($form['#submit'], 'rh_profile2_profile2_form_prepare_submit');
++    if (!user_access('bypass rh_profile2')) {
++      $form['#submit'][] = 'rh_profile2_profile2_form_submit';
++    }
++  }
++}
++
++/**
++ * Submit hanlder to set up entity properties before save.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function rh_profile2_profile2_form_prepare_submit($form, &$form_state) {
++  $form_state['profile2']->rh_action = $form_state['values']['rh_action'];
++  $form_state['profile2']->rh_redirect = $form_state['values']['rh_redirect'];
++  $form_state['profile2']->rh_redirect_response = $form_state['values']['rh_redirect_response'];
++}
++
++/**
++ * Custom submit function for the Profile edit form.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function rh_profile2_profile2_form_submit($form, &$form_state) {
++  // Get the action. Either the one specified for this Profile, or the default
++  // value for the bundle.
++  $action = isset($form_state['values']['rh_action']) && $form_state['values']['rh_action'] != RABBIT_HOLE_USE_DEFAULT
++    ? $form_state['values']['rh_action']
++    : rabbit_hole_get_action_bundle('profile2', $form_state['profile2']->type);
++
++  // If the action says anything else than to display the content, make sure
++  // that the user doesn't land on the Profile view page. We'll check if a custom
++  // redirect path has been set, otherwise, we'll redirect the user to the edit
++  // page again.
++  if ($action != RABBIT_HOLE_DISPLAY_CONTENT && $form_state['redirect'] == $form_state['profile2']->path()) {
++    $form_state['redirect'] = $form_state['profile2']->path() . '/edit';
++  }
++}
++
++/**
++ * Implements hook_profile2_view().
++ *
++ * @param $profile
++ * @param $view_mode
++ * @param $langcode
++ */
++function rh_profile2_profile2_view($profile, $view_mode, $langcode) {
++  if ($view_mode == 'page' && !user_access('bypass rh_profile2')) {
++    rabbit_hole_execute('profile2', $profile);
++  }
++}
++
++/**
++ * Implements hook_profile2_type_delete().
++ *
++ * @param $profile_type
++ */
++function rh_profile2_profile2_type_delete($profile_type) {
++  // Delete variables connected to this bundle.
++  rabbit_hole_delete_variables('profile2', $profile_type->type);
++}
