@@ -1,0 +1,209 @@
+diff --git a/views_content/plugins/content_types/views.inc b/views_content/plugins/content_types/views.inc
+index bb413d5..a921103 100644
+--- a/views_content/plugins/content_types/views.inc
++++ b/views_content/plugins/content_types/views.inc
+@@ -11,6 +11,8 @@ if (variable_get('ctools_content_all_views', TRUE)) {
+     'defaults' => array(
+       'override_pager_settings' => FALSE,
+       'use_pager' => FALSE,
++      'set_view_mode' => FALSE,
++      'set_style_plugin' => FALSE,
+       'nodes_per_page' => 10,
+       'pager_id' => 0,
+       'offset' => 0,
+@@ -315,6 +317,22 @@ function views_content_views_content_type_edit_form($form, &$form_state) {
+     '#id' => 'override-pager-checkbox',
+   );
+ 
++  if ($view->display_handler->get_option('row_plugin') == 'entity') {
++    $form['set_view_mode'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Set view mode'),
++      '#default_value' => $conf['set_view_mode'],
++      '#description' => t('Select this to expose view mode choice.'),
++    );
++  }
++
++  $form['set_style_plugin'] = array(
++    '#type' => 'checkbox',
++    '#title' => t('Set style plugin'),
++    '#default_value' => $conf['set_style_plugin'],
++    '#description' => t('Select this to expose style plugin choice.'),
++  );
++
+   if ($view->display_handler->get_option('use_ajax')) {
+     $form['pager_settings']['warning'] = array(
+       '#value' => '<div>' . t('<strong>Warning: </strong> This view has AJAX enabled. Overriding the pager settings will work initially, but when the view is updated via AJAX, the original settings will be used. You should not override pager settings on Views with the AJAX setting enabled.') . '</div>',
+diff --git a/views_content/plugins/content_types/views_panes.inc b/views_content/plugins/content_types/views_panes.inc
+index e4dded2..55679da 100644
+--- a/views_content/plugins/content_types/views_panes.inc
++++ b/views_content/plugins/content_types/views_panes.inc
+@@ -262,6 +262,22 @@ function views_content_views_panes_content_type_render($subtype, $conf, $panel_a
+     $view->display_handler->set_option('pager', $pager);
+   }
+ 
++  if (in_array($view->display_handler->get_option('row_plugin'), array('node', 'entity'))) {
++    if ($allow['set_view_mode']) {
++      if ($conf['view_mode']) {
++        $row_options = $view->display_handler->get_option('row_options');
++        $row_options['view_mode'] = $conf['view_mode'];
++        $row_options['links'] = $conf['links'];
++        $row_options['comments'] = $conf['comments'];
++        $view->display_handler->set_option('row_options', $row_options);
++      }
++    }
++  }
++
++  if ($allow['set_style_plugin']) {
++    $view->display_handler->set_option('style_plugin', $conf['style_plugin']);
++  }
++
+   if ($allow['fields_override']) {
+     if ($conf['fields_override']) {
+       $fields = $view->get_items('field');
+@@ -320,12 +336,18 @@ function views_content_views_panes_content_type_render($subtype, $conf, $panel_a
+  */
+ function views_content_views_panes_add_defaults(&$conf, $view) {
+   $pager = $view->display_handler->get_option('pager');
++  $row_options = $view->display_handler->get_option('row_options');
++  $display_options = $view->display_handler->get_option('display_options');
+ 
+   $conf += array(
+     'link_to_view' => $view->display_handler->get_option('link_to_view'),
+     'more_link' => $view->display_handler->get_option('use_more'),
+     'feed_icons' => FALSE,
+     'use_pager' => $pager['type'] != 'none' && $pager['type'] != 'some',
++    'view_mode' => isset($row_options['view_mode']) ? $row_options['view_mode'] : 'full',
++    'links' => isset($row_options['links']) ? $row_options['links'] : FALSE,
++    'comments' => isset($row_options['comments']) ? $row_options['comments'] : FALSE,
++    'style_plugin' => isset($display_options['style_plugin']) ? $display_options['style_plugin'] : FALSE,
+     'pager_id' => isset($pager['options']['id']) ? $pager['options']['id'] : 0,
+     'items_per_page' => !empty($pager['options']['items_per_page']) ? $pager['options']['items_per_page'] : 10,
+     'offset' => !empty($pager['options']['offset']) ? $pager['options']['offset'] : 0,
+@@ -442,6 +464,72 @@ function views_content_views_panes_content_type_edit_form($form, &$form_state) {
+       '#suffix' => '</div>',
+     );
+   }
++
++  if ($allow['set_view_mode']) {
++    // This is assuming too much. A better way to do this?
++    // Ideally just use the options_form method from the plugin.
++    $base_table = $view->display_handler->view->base_table;
++    // Check if is a valid entity type.
++    $entity_types = entity_get_info();
++
++    // Create the options list with available view-modes.
++    $options = array();
++
++    // Real entities where Views is querying the entity table.
++    if (isset($entity_types[$base_table])) {
++      foreach ($entity_types[$base_table]['view modes'] as $mode => $settings) {
++        $options[$mode] = $settings['label'];
++      }
++    }
++    // SearchAPI index where Views is querying the search_api_index table.
++    elseif (drupal_substr($view->base_table, 0, 16) == 'search_api_index') {
++      // We must prepare the query to get more info from search_api views.
++      $view->set_display('default');
++      $view->build();
++      // Get entityType from SearchApi query.
++      $base_table = $view->query->getIndex()->getEntityType();
++      foreach ($entity_types[$base_table]['view modes'] as $mode => $settings) {
++        $options[$mode] = $settings['label'];
++      }
++    }
++    // Fallback mode.
++    else {
++      // Default to node
++      $base_table = 'node';
++      foreach ($entity_types[$base_table]['view modes'] as $mode => $settings) {
++        $options[$mode] = $settings['label'];
++      }
++    }
++
++    // @see views_plugin_row_node_view::options_form()
++    $form['view_mode'] = array(
++      '#type' => 'select',
++      '#title' => t('Select view mode'),
++      '#default_value' => $conf['view_mode'],
++      '#options' => $options,
++    );
++    $form['links'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Display links'),
++      '#default_value' => $conf['links'],
++    );
++    $form['comments'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Display comments'),
++      '#default_value' => $conf['comments'],
++    );
++  }
++
++  if ($allow['set_style_plugin']) {
++    $options = views_fetch_plugin_names('style', $view->display_handler->get_style_type(), array($view->display_handler->view->base_table));
++    $form['style_plugin'] = array(
++      '#type' => 'select',
++      '#title' => t('Select style plugin'),
++      '#default_value' => $conf['style_plugin'],
++      '#options' => $options,
++    );
++  }
++
+   if ($allow['items_per_page']) {
+     $form['items_per_page'] = array(
+       '#type' => 'textfield',
+@@ -560,7 +648,7 @@ function views_content_views_panes_content_type_edit_form($form, &$form_state) {
+  */
+ function views_content_views_panes_content_type_edit_form_submit(&$form, &$form_state) {
+   // Copy everything from our defaults.
+-  $keys = array('link_to_view', 'more_link', 'feed_icons', 'use_pager',
++  $keys = array('link_to_view', 'more_link', 'feed_icons', 'use_pager', 'view_mode', 'links', 'comments', 'style_plugin',
+     'pager_id', 'items_per_page', 'offset', 'path_override', 'path', 'arguments', 'fields_override', 'exposed');
+ 
+   foreach ($keys as $key) {
+diff --git a/views_content/plugins/views/views_content_plugin_display_panel_pane.inc b/views_content/plugins/views/views_content_plugin_display_panel_pane.inc
+index e02f896..f39999b 100644
+--- a/views_content/plugins/views/views_content_plugin_display_panel_pane.inc
++++ b/views_content/plugins/views/views_content_plugin_display_panel_pane.inc
+@@ -25,15 +25,17 @@ class views_content_plugin_display_panel_pane extends views_plugin_display {
+ 
+     $options['allow'] = array(
+       'contains' => array(
+-        'use_pager'       => array('default' => FALSE),
+-        'items_per_page'  => array('default' => FALSE),
+-        'offset'          => array('default' => FALSE),
+-        'link_to_view'    => array('default' => FALSE),
+-        'more_link'       => array('default' => FALSE),
+-        'path_override'   => array('default' => FALSE),
+-        'title_override'  => array('default' => FALSE),
+-        'exposed_form'    => array('default' => FALSE),
+-        'fields_override' => array('default' => FALSE),
++        'use_pager'        => array('default' => FALSE),
++        'set_view_mode'    => array('default' => FALSE),
++        'set_style_plugin' => array('default' => FALSE),
++        'items_per_page'   => array('default' => FALSE),
++        'offset'           => array('default' => FALSE),
++        'link_to_view'     => array('default' => FALSE),
++        'more_link'        => array('default' => FALSE),
++        'path_override'    => array('default' => FALSE),
++        'title_override'   => array('default' => FALSE),
++        'exposed_form'     => array('default' => FALSE),
++        'fields_override'  => array('default' => FALSE),
+        ),
+     );
+ 
+@@ -160,6 +162,8 @@ class views_content_plugin_display_panel_pane extends views_plugin_display {
+ 
+         $options = array(
+           'use_pager' => t('Use pager'),
++          'set_view_mode' => t('Set view mode'),
++          'set_style_plugin' => t('Set style plugin'),
+           'items_per_page' => t('Items per page'),
+           'offset' => t('Pager offset'),
+           'link_to_view' => t('Link to view'),
+@@ -413,4 +417,3 @@ class views_content_plugin_display_panel_pane extends views_plugin_display {
+   }
+ 
+ }
+-
