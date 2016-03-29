@@ -1,0 +1,14 @@
+diff --git a/entityform_block.module b/entityform_block.module
+index d720ad4..f0b07fb 100755
+--- a/entityform_block.module
++++ b/entityform_block.module
+@@ -194,8 +194,8 @@ function entityform_block_get_entity($type){
+  * Deletes blocks if the entity type is deleted.
+  */
+ function entityform_block_entity_delete($entity, $entity_type) {
+-  $type = $entity->type;
+   if ($entity_type == "entityform_type") {
++    $type = $entity->type;
+     $types = variable_get('entityform_block_types');
+     if (entityform_block_exists($types, $type)) {
+       $key = array_search($type, $types);
