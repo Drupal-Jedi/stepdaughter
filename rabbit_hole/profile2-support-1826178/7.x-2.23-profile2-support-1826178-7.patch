@@ -1,6 +1,6 @@
 diff --git a/modules/rh_profile2/rh-profile2.js b/modules/rh_profile2/rh-profile2.js
 new file mode 100644
-index 0000000..4e0344a
+index 0000000..4957d27
 --- /dev/null
 +++ b/modules/rh_profile2/rh-profile2.js
 @@ -0,0 +1,18 @@
@@ -17,7 +17,7 @@ index 0000000..4e0344a
 +      var summary = $('label[for=' + $rabbitHoleAction.attr('id') + ']').text();
 +      return Drupal.checkPlain(summary);
 +    });
-+  
++
 +  }
 +}
 +
