@@ -1,0 +1,77 @@
+diff --git a/contrib/profile2_page.inc b/contrib/profile2_page.inc
+index cc3ba41..963b7e5 100644
+--- a/contrib/profile2_page.inc
++++ b/contrib/profile2_page.inc
+@@ -46,6 +46,18 @@ function profile2_form($form, &$form_state, $profile) {
+     '#value' => t('Save'),
+     '#weight' => 40,
+   );
++
++  if (!empty($form_state['profile2_previews'])) {
++    $preview = render($form_state['profile2_previews']);
++    $form['#prefix'] = isset($form['#prefix']) ? $form['#prefix'] . $preview : $preview;
++  }
++  $form['actions']['preview'] = array(
++    '#type' => 'submit',
++    '#value' => t('Preview'),
++    '#weight' => 41,
++    '#submit' => array('profile2_form_preview'),
++  );
++
+   if (empty($profile->is_new) && user_access('administer profiles')) {
+     $form['actions']['delete'] = array(
+       '#type' => 'submit',
+@@ -59,6 +71,53 @@ function profile2_form($form, &$form_state, $profile) {
+   return $form;
+ }
+ 
++
++/**
++ * Prepare render array for cloned profile to show fresh preview.
++ *
++ * @param $profile
++ * @return mixed
++ */
++function profile2_preview($profile) {
++  $cloned_profile = clone $profile;
++  if (profile2_access('create', $cloned_profile) || node_access('update', $cloned_profile)) {
++    _field_invoke_multiple('load', 'profile2', array($cloned_profile->pid => $cloned_profile));
++    $cloned_profile->in_preview = TRUE;
++    $cloned_profile->changed = REQUEST_TIME;
++
++    return profile2_view($cloned_profile);
++  }
++}
++
++/**
++ * Submit handler for preview button.
++ *
++ * @param $form
++ * @param $form_state
++ */
++function profile2_form_preview($form, &$form_state) {
++  profile2_form_submit_build_profile($form, $form_state);
++  // This is needed as some submit callbacks like user_register_submit() rely on
++  // clean form values.
++  profile2_form_submit_cleanup($form, $form_state);
++
++  $previews = array();
++  foreach ($form_state['profiles'] as $type => $profile) {
++    // During registration set the uid field of the newly created user.
++    if (empty($profile->uid) && isset($form_state['user']->uid)) {
++      $profile->uid = $form_state['user']->uid;
++    }
++    if ($preview = profile2_preview($profile)) {
++      $previews[] = $preview;
++    }
++  }
++  if ($previews) {
++    $form_state['profile2_previews'] = $previews;
++  }
++
++  $form_state['rebuild'] = TRUE;
++}
++
+ /**
+  * Profile form submit handler.
+  */
