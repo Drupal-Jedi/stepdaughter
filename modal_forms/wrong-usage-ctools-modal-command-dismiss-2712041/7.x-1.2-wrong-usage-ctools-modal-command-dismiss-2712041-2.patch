@@ -1,0 +1,13 @@
+diff --git a/modal_forms.pages.inc b/modal_forms.pages.inc
+index b9b3817..cee97d9 100644
+--- a/modal_forms.pages.inc
++++ b/modal_forms.pages.inc
+@@ -34,7 +34,7 @@ function modal_forms_login($js = NULL) {
+     // We'll just overwrite the form output if it was successful.
+     $output = array();
+     ctools_add_js('ajax-responder');
+-    $output[] = ctools_modal_command_dismiss(t('Login success'));
++    $output[] = ctools_modal_command_dismiss();
+     if (isset($_GET['destination'])) {
+       $output[] = ctools_ajax_command_redirect($_GET['destination']);
+     }
