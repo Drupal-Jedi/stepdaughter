@@ -1,0 +1,28 @@
+diff --git a/core/lib/Drupal/Core/Form/FormBuilder.php b/core/lib/Drupal/Core/Form/FormBuilder.php
+index bb7034f..d1e69b9 100644
+--- a/core/lib/Drupal/Core/Form/FormBuilder.php
++++ b/core/lib/Drupal/Core/Form/FormBuilder.php
+@@ -1084,7 +1084,22 @@ public function doBuildForm($form_id, &$element, FormStateInterface &$form_state
+       // been identified yet, default it to the first button.
+       $buttons = $form_state->getButtons();
+       if (!$form_state->isProgrammed() && !$form_state->getTriggeringElement() && !empty($buttons)) {
+-        $form_state->setTriggeringElement($buttons[0]);
++        $triggering_element = $buttons[0];
++        // If there was no specific triggering button detected by an element value,
++        // try to find a triggering element by name in the user input.
++        $input = $form_state->getUserInput();
++        foreach ($buttons as $button_element) {
++          if (isset($button_element['#name'])) {
++            // Try to find an ajax-submitted element by name matched to _triggering_element_name.
++            if ((!empty($input['_triggering_element_name']) && $button_element['#name'] == $input['_triggering_element_name'])
++              // Or lookup for a non-empty value in the user input by element name.
++              || (!empty($input[$button_element['#name']]))) {
++              $triggering_element = $button_element;
++              break;
++            }
++          }
++        }
++        $form_state->setTriggeringElement($triggering_element);
+       }
+ 
+       $triggering_element = $form_state->getTriggeringElement();
