@@ -1,0 +1,84 @@
+diff --git a/includes/form.inc b/includes/form.inc
+index a337b03..30b5a5e 100644
+--- a/includes/form.inc
++++ b/includes/form.inc
+@@ -1789,9 +1789,9 @@ function form_builder($form_id, &$element, &$form_state) {
+     $element['#after_build_done'] = TRUE;
+   }
+ 
+-  // If there is a file element, we need to flip a flag so later the
++  // If there is a visible file element, we need to flip a flag so later the
+   // form encoding can be set.
+-  if (isset($element['#type']) && $element['#type'] == 'file') {
++  if (isset($element['#type']) && $element['#type'] == 'file' && !(isset($element['#access']) && $element['#access'] == FALSE)) {
+     $form_state['has_file_element'] = TRUE;
+   }
+ 
+diff --git a/modules/simpletest/tests/form.test b/modules/simpletest/tests/form.test
+index e7ae9de..beaf3d0 100644
+--- a/modules/simpletest/tests/form.test
++++ b/modules/simpletest/tests/form.test
+@@ -426,6 +426,22 @@ class FormElementTestCase extends DrupalWebTestCase {
+       )));
+     }
+   }
++
++  /**
++   * Test form with file element.
++   */
++  function testFileElement() {
++    // Test visible file element.
++    $form_state = array();
++    $form = drupal_build_form('form_test_file_element', $form_state);
++    $this->assertTrue($form_state['has_file_element'], t('File element was proccessed correctly.'));
++
++    // Test hidden (no access) file element.
++    $form_state = array();
++    $form_state['deny file access'] = TRUE;
++    $form = drupal_build_form('form_test_file_element', $form_state);
++    $this->assertTrue(empty($form_state['has_file_element']), t('File element with no access was proccessed correctly.'));
++  }
+ }
+ 
+ /**
+@@ -521,7 +537,7 @@ class FormValidationTestCase extends DrupalWebTestCase {
+    */
+   function testValidateLimitErrors() {
+     $edit = array(
+-      'test' => 'invalid', 
++      'test' => 'invalid',
+       'test_numeric_index[0]' => 'invalid',
+       'test_substring[foo]' => 'invalid',
+     );
+diff --git a/modules/simpletest/tests/form_test.module b/modules/simpletest/tests/form_test.module
+index 00be7d2..2811cd8 100644
+--- a/modules/simpletest/tests/form_test.module
++++ b/modules/simpletest/tests/form_test.module
+@@ -332,6 +332,27 @@ function form_test_validate_form_validate(&$form, &$form_state) {
+ }
+ 
+ /**
++ * Builds a form with a file element, and set its access.
++ */
++function form_test_file_element($form, &$form_state) {
++  $form['title'] = array(
++    '#type' => 'textfield',
++    '#title' => 'Title',
++    '#required' => TRUE,
++  );
++  $form['file_element'] = array(
++    '#type' => 'file',
++    '#title' => t('File element'),
++  );
++
++  if (!empty($form_state['deny file access'])) {
++    $form['file_element']['#access'] = FALSE;
++  }
++
++  return $form;
++}
++
++/**
+  * Builds a simple form with a button triggering partial validation.
+  */
+ function form_test_limit_validation_errors_form($form, &$form_state) {
