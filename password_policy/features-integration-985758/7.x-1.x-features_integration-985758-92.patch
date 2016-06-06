@@ -1,5 +1,5 @@
 diff --git a/password_policy.admin.inc b/password_policy.admin.inc
-index 733b17e..34a957b 100644
+index 733b17e..67fd80d 100644
 --- a/password_policy.admin.inc
 +++ b/password_policy.admin.inc
 @@ -478,6 +478,76 @@ function password_policy_admin_form_submit($form, &$form_state) {
@@ -40,14 +40,14 @@ index 733b17e..34a957b 100644
 +    'roles' => $form_values['roles'],
 +  );
 +  if (isset($form_values['pid'])) {
-+    // Editing an existing policy. Get pid and enabled state.
++    // Editing an existing policy. Get pid.
 +    $policy['pid'] = $form_values['pid'];
-+    $policy['enabled'] = $form_values['enabled'];
 +  }
 +  else {
 +    // Adding a new policy. Disable by default.
 +    $policy['enabled'] = 0;
 +  }
++
 +  return $policy;
 +}
 +
@@ -135,10 +135,10 @@ index 733b17e..34a957b 100644
  /**
 diff --git a/password_policy.features.inc b/password_policy.features.inc
 new file mode 100644
-index 0000000..1ae1e42
+index 0000000..f27a2aa
 --- /dev/null
 +++ b/password_policy.features.inc
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,89 @@
 +<?php
 +/**
 + * @file
@@ -162,9 +162,19 @@ index 0000000..1ae1e42
 +
 +  foreach ($data as $policy_name) {
 +    $policy = password_policy_load_policy_by_name($policy_name);
++    // Get already exported user roles.
++    $map = features_get_default_map('user_role', 'name');
 +    foreach ($policy['roles'] as $key => $rid) {
 +      $role = user_role_load($rid);
-+      $export['user_role'][$role->name] = $role->name;
++      if (!in_array($role->name, array_keys($map))) {
++        $export['features']['user_role'][$role->name] = $role->name;
++      }
++      else {
++        $dependency = $map[$role->name];
++        if (!isset($export['dependencies'][$dependency])) {
++          $export['dependencies'][$dependency] = $dependency;
++        }
++      }
 +    }
 +    $export['features']['password_policy'][$policy_name] = $policy_name;
 +  }
@@ -225,7 +235,7 @@ index 0000000..1ae1e42
 +  }
 +}
 diff --git a/password_policy.module b/password_policy.module
-index 7727ab4..79c4f8c 100644
+index 7727ab4..16ad0af 100644
 --- a/password_policy.module
 +++ b/password_policy.module
 @@ -185,22 +185,7 @@ function password_policy_drupal_goto_alter(&$path, &$options) {
@@ -371,7 +381,7 @@ index 7727ab4..79c4f8c 100644
        ->execute();
      foreach ($result as $role) {
        $row['roles'][$role->rid] = $role->rid;
-@@ -1313,6 +1377,59 @@ function _password_policy_load_active_policy(array $roles) {
+@@ -1313,6 +1377,65 @@ function _password_policy_load_active_policy(array $roles) {
  }
  
  /**
@@ -382,17 +392,23 @@ index 7727ab4..79c4f8c 100644
 + */
 +function password_policy_save_policy(array $policy) {
 +  if (isset($policy['pid']) && $policy['pid']) {
-+    db_update('password_policy')
-+      ->fields(array(
-+        'name' => $policy['name'],
-+        'description' => $policy['description'],
++    $fields = array(
++      'name' => $policy['name'],
++      'description' => $policy['description'],
++      'constraints' => serialize($policy['constraints']),
++      'created' => isset($policy['created']) ? $policy['created'] : 0,
++      'expiration' => !empty($policy['expiration']) ? $policy['expiration'] : 0,
++      'warning' => str_replace(' ', '', $policy['warning']),
++      'weight' => !empty($policy['weight']) ? $policy['weight'] : 0,
++    );
++    // On policy edit form we have no 'enabled' param, so modify update query.
++    if (isset($policy['enabled'])) {
++      $fields += array(
 +        'enabled' => $policy['enabled'],
-+        'constraints' => serialize($policy['constraints']),
-+        'created' => isset($policy['created']) ? $policy['created'] : 0,
-+        'expiration' => !empty($policy['expiration']) ? $policy['expiration'] : 0,
-+        'warning' => str_replace(' ', '', $policy['warning']),
-+        'weight' => !empty($policy['weight']) ? $policy['weight'] : 0,
-+      ))
++      );
++    }
++    db_update('password_policy')
++      ->fields($fields)
 +      ->condition('pid', $policy['pid'])
 +      ->execute();
 +    watchdog('password_policy', 'Policy %name updated.', array('%name' => $policy['name']), WATCHDOG_NOTICE, l(t('edit'), 'admin/config/people/password_policy/' . $policy['pid'] . '/edit'));
