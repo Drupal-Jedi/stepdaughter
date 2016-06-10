@@ -135,10 +135,10 @@ index 733b17e..67fd80d 100644
  /**
 diff --git a/password_policy.features.inc b/password_policy.features.inc
 new file mode 100644
-index 0000000..f27a2aa
+index 0000000..799645f
 --- /dev/null
 +++ b/password_policy.features.inc
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,95 @@
 +<?php
 +/**
 + * @file
