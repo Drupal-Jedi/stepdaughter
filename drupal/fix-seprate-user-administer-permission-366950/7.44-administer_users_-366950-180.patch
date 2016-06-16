@@ -1,0 +1,89 @@
+diff --git a/modules/contact/contact.test b/modules/contact/contact.test
+index 6693b57..7ff0890 100644
+--- a/modules/contact/contact.test
++++ b/modules/contact/contact.test
+@@ -25,7 +25,7 @@ class ContactSitewideTestCase extends DrupalWebTestCase {
+    */
+   function testSiteWideContact() {
+     // Create and login administrative user.
+-    $admin_user = $this->drupalCreateUser(array('access site-wide contact form', 'administer contact forms', 'administer users'));
++    $admin_user = $this->drupalCreateUser(array('access site-wide contact form', 'administer contact forms', 'administer users', 'administer user settings'));
+     $this->drupalLogin($admin_user);
+ 
+     $flood_limit = 3;
+@@ -315,7 +315,7 @@ class ContactPersonalTestCase extends DrupalWebTestCase {
+     parent::setUp('contact');
+ 
+     // Create an admin user.
+-    $this->admin_user = $this->drupalCreateUser(array('administer contact forms', 'administer users'));
++    $this->admin_user = $this->drupalCreateUser(array('administer contact forms', 'administer users', 'administer user settings'));
+ 
+     // Create some normal users with their contact forms enabled by default.
+     variable_set('contact_default_status', TRUE);
+diff --git a/modules/user/user.install b/modules/user/user.install
+index b573e72..f7a4a03 100644
+--- a/modules/user/user.install
++++ b/modules/user/user.install
+@@ -911,5 +911,15 @@ function user_update_7018() {
+ }
+ 
+ /**
++ * Add fallback for new 'administer user settings' permission.
++ */
++function user_update_7019() {
++  $user_admin_roles = user_roles(FALSE, 'administer users');
++  foreach (array_keys($user_admin_roles) as $rid => $role) {
++    user_role_grant_permissions($rid, array('administer user settings'));
++  }
++}
++
++/**
+  * @} End of "addtogroup updates-7.x-extra".
+  */
+diff --git a/modules/user/user.module b/modules/user/user.module
+index 9637a71..4fe535b 100644
+--- a/modules/user/user.module
++++ b/modules/user/user.module
+@@ -881,6 +881,11 @@ function user_permission() {
+       'title' => t('Administer users'),
+       'restrict access' => TRUE,
+     ),
++    'administer user settings' => array(
++      'title' => t('Administer user settings'),
++      'description' => t('Manage settings that apply to all user accounts.'),
++      'restrict access' => TRUE,
++    ),
+     'access user profiles' => array(
+       'title' => t('View user profiles'),
+     ),
+@@ -1772,7 +1777,7 @@ function user_menu() {
+     'description' => 'Configure default behavior of users, including registration requirements, e-mails, fields, and user pictures.',
+     'page callback' => 'drupal_get_form',
+     'page arguments' => array('user_admin_settings'),
+-    'access arguments' => array('administer users'),
++    'access arguments' => array('administer user settings'),
+     'file' => 'user.admin.inc',
+     'weight' => -10,
+   );
+diff --git a/modules/user/user.test b/modules/user/user.test
+index 07be4c2..c9d495a 100644
+--- a/modules/user/user.test
++++ b/modules/user/user.test
+@@ -1286,7 +1286,7 @@ class UserPictureTestCase extends DrupalWebTestCase {
+    * Tests the admin form validates user picture settings.
+    */
+   function testUserPictureAdminFormValidation() {
+-    $this->drupalLogin($this->drupalCreateUser(array('administer users')));
++    $this->drupalLogin($this->drupalCreateUser(array('administer users', 'administer user settings')));
+ 
+     // The default values are valid.
+     $this->drupalPost('admin/config/people/accounts', array(), t('Save configuration'));
+@@ -1317,7 +1317,7 @@ class UserPermissionsTestCase extends DrupalWebTestCase {
+   function setUp() {
+     parent::setUp();
+ 
+-    $this->admin_user = $this->drupalCreateUser(array('administer permissions', 'access user profiles', 'administer site configuration', 'administer modules', 'administer users'));
++    $this->admin_user = $this->drupalCreateUser(array('administer permissions', 'access user profiles', 'administer site configuration', 'administer modules', 'administer users', 'administer user settings'));
+ 
+     // Find the new role ID - it must be the maximum.
+     $all_rids = array_keys($this->admin_user->roles);
