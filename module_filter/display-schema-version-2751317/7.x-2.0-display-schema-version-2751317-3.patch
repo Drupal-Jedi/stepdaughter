@@ -1,0 +1,23 @@
+diff --git a/module_filter.theme.inc b/module_filter.theme.inc
+index b199bed..673d3ff 100644
+--- a/module_filter.theme.inc
++++ b/module_filter.theme.inc
+@@ -51,6 +51,7 @@ function theme_module_filter_system_modules_tabs($variables) {
+ 
+   // Determine what modules are new (within a week).
+   $new_modules = module_filter_new_modules();
++  $module_data = system_rebuild_module_data();
+   $package_ids[] = 'new';
+   $enabled['new'] = array();
+ 
+@@ -108,6 +109,10 @@ function theme_module_filter_system_modules_tabs($variables) {
+         if ($version) {
+           $description .= '<div class="admin-requirements">' . t('Version: !module-version', array('!module-version' => drupal_render($module['version']))) . '</div>';
+         }
++        // Display schema version for enabled modules.
++        if (isset($module_data[$key]) && !empty($module_data[$key]->status)) {
++          $description .= '<div class="admin-requirements">' . t('Schema version: @schema_version', array('@schema_version' => $module_data[$key]->schema_version)) . '</div>';
++        }
+         if ($requires) {
+           $description .= '<div class="admin-requirements">' . t('Requires: !module-list', array('!module-list' => implode(', ', $module['#requires']))) . '</div>';
+         }
