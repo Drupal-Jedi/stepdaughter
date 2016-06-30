@@ -1,0 +1,57 @@
+diff --git a/maxlength.module b/maxlength.module
+index 47acde2..651b643 100644
+--- a/maxlength.module
++++ b/maxlength.module
+@@ -147,6 +147,24 @@ function maxlength_field_attach_form($entity_type, $entity, &$form, &$form_state
+ }
+ 
+ /**
++ * Check if we should bypass length validation.
++ *
++ * @return bool
++ *   Do we have access to bypass max length validation or not.
++ */
++function _maxlength_bypass_maxlength() {
++  $bypass = &drupal_static(__FUNCTION__);
++  if (!isset($bypass)) {
++    // Add "$conf['maxlength_always_for_uid1'] = TRUE;" to settings.php to activate
++    // for user #1.
++    $bypass = $GLOBALS['user']->uid == 1
++      ? !variable_get('maxlength_always_for_uid1', FALSE)
++      : user_access('bypass maxlength');
++  }
++  return $bypass;
++}
++
++/**
+  * Recursively add the #maxlength_js and #maxlength properties to the elements
+  * of a form.
+  *
+@@ -160,15 +178,9 @@ function maxlength_field_attach_form($entity_type, $entity, &$form, &$form_state
+  *   should be set, with the field_name as a key and the field_data as the value.
+  */
+ function _maxlength_children(&$element, $ms_elements) {
+-  $bypass = &drupal_static(__FUNCTION__);
+-  // Add "$conf['maxlength_always_for_uid1'] = TRUE;" to settings.php to activate
+-  // for user #1.
+-  if (isset($bypass) && $bypass) {
++  if (_maxlength_bypass_maxlength()) {
+     return;
+   }
+-  elseif (!isset($bypass)) {
+-    $bypass = $GLOBALS['user']->uid == 1 ? !variable_get('maxlength_always_for_uid1', FALSE) : user_access('bypass maxlength');
+-  }
+ 
+   $children = element_get_visible_children($element);
+   foreach ($children as $child) {
+@@ -250,6 +262,10 @@ function maxlength_validate_input(&$element, &$form_state) {
+  * Implements hook_form_alter().
+  */
+ function maxlength_form_alter(&$form, &$form_state, $form_id) {
++  if (_maxlength_bypass_maxlength()) {
++    return;
++  }
++
+   // Attach maxlength to node title.
+   if (isset($form['#node']) && strpos($form_id, '_node_form') !== FALSE && variable_get('maxlength_js_' . $form['#node']->type, FALSE)) {
+     if (!module_exists('title') || title_field_replacement_enabled('node', $form['#node']->type, 'title') !== TRUE) {
