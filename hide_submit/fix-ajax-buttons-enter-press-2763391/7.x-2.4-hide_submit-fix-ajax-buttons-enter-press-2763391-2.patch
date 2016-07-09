@@ -1,0 +1,13 @@
+diff --git a/js/hide_submit.js b/js/hide_submit.js
+index 7313cc3..7a5abcb 100644
+--- a/js/hide_submit.js
++++ b/js/hide_submit.js
+@@ -24,7 +24,7 @@
+         // Bind to input elements.
+         if (Drupal.settings.hide_submit.hide_submit_method === 'indicator') {
+           // Replace input elements with buttons.
+-          $('input.form-submit', $form).each(function(index, el) {
++          $('input.form-submit:not(.ajax-processed)', $form).each(function(index, el) {
+             var attrs = {};
+ 
+             $.each($(this)[0].attributes, function(idx, attr) {
