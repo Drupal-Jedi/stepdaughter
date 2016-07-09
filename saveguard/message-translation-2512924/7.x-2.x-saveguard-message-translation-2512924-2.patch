@@ -1,0 +1,54 @@
+diff --git a/saveguard.install b/saveguard.install
+index efa91fe..1a00ac8 100644
+--- a/saveguard.install
++++ b/saveguard.install
+@@ -11,3 +11,12 @@
+ function saveguard_uninstall() {
+   variable_del('saveguard_message');
+ }
++
++/**
++ * Remove message variable if it's empty to use default value.
++ */
++function saveguard_update_7001() {
++  if (variable_get('saveguard_message', FALSE) === '') {
++    variable_del('saveguard_message');
++  }
++}
+diff --git a/saveguard.js b/saveguard.js
+index b79611b..3c86a56 100644
+--- a/saveguard.js
++++ b/saveguard.js
+@@ -15,10 +15,6 @@
+     // Add the class and onbeforeunload only once.
+     if (!$('body').is('.has-unsaved-changes')) {
+       $('body').addClass('has-unsaved-changes');
+-      if (!msg) {
+-        // The default message.
+-        msg = "If you continue your unsaved changes will be lost.";
+-      }
+       window.onbeforeunload = function() {return msg;};
+       $(':submit, input:image').click(function() {
+         // Turn off the warning before submit triggers it.
+diff --git a/saveguard.module b/saveguard.module
+index 49978b2..a91ca81 100644
+--- a/saveguard.module
++++ b/saveguard.module
+@@ -32,7 +32,7 @@ function saveguard_admin_settings() {
+   $form['saveguard_message'] = array(
+     '#type' => 'textfield',
+     '#title' => t('Popup Message'),
+-    '#default_value' => variable_get('saveguard_message', NULL),
++    '#default_value' => variable_get('saveguard_message', 'If you continue your unsaved changes will be lost.'),
+   );
+   $form['saveguard_anonymous'] = array(
+     '#type' => 'checkbox',
+@@ -67,7 +67,7 @@ function saveguard_form_alter(&$form, &$form_state, $form_id) {
+   );
+ 
+   if (!$done) {
+-    $settings['saveguard']['msg'] = variable_get('saveguard_message', NULL);
++    $settings['saveguard']['msg'] = t(variable_get('saveguard_message', 'If you continue your unsaved changes will be lost.'));
+     $form['#attached']['js'][] = array(
+       'data' => $settings,
+       'type' => 'setting',

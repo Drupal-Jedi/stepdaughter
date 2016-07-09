@@ -1,0 +1,16 @@
+diff --git a/saveguard.module b/saveguard.module
+index 49978b2..18ba532 100644
+--- a/saveguard.module
++++ b/saveguard.module
+@@ -11,9 +11,9 @@
+  * Implements hook_menu().
+  */
+ function saveguard_menu() {
+-  $items['admin/config/system/saveguard'] = array(
++  $items['admin/config/user-interface/saveguard'] = array(
+     'title' => 'SaveGuard',
+-    'description' => 'Set the popup message text.',
++    'description' => 'Configure popup when user leave modified form page.',
+     'page callback' => 'drupal_get_form',
+     'page arguments' => array('saveguard_admin_settings'),
+     'access callback' => 'user_access',

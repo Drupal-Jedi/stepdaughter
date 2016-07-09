@@ -1,0 +1,143 @@
+diff --git a/saveguard.install b/saveguard.install
+index efa91fe..1b7a076 100644
+--- a/saveguard.install
++++ b/saveguard.install
+@@ -10,4 +10,8 @@
+  */
+ function saveguard_uninstall() {
+   variable_del('saveguard_message');
++  variable_del('saveguard_anonymous');
++  variable_del('saveguard_mode');
++  variable_del('saveguard_include_forms');
++  variable_del('saveguard_exclude_forms');
+ }
+diff --git a/saveguard.module b/saveguard.module
+index 49978b2..2404a3d 100644
+--- a/saveguard.module
++++ b/saveguard.module
+@@ -7,6 +7,10 @@
+  * Adds a onBeforeUnload event to all modified forms.
+  */
+ 
++define('SAVEGUARD_MODE_ALL', 0);
++define('SAVEGUARD_MODE_INCLUDE', 1);
++define('SAVEGUARD_MODE_EXCLUDE', 2);
++
+ /**
+  * Implements hook_menu().
+  */
+@@ -26,8 +30,7 @@ function saveguard_menu() {
+ /**
+  * Define a settings form.
+  */
+-function saveguard_admin_settings() {
+-  $form = array();
++function saveguard_admin_settings($form, $form_state) {
+ 
+   $form['saveguard_message'] = array(
+     '#type' => 'textfield',
+@@ -39,10 +42,66 @@ function saveguard_admin_settings() {
+     '#title' => t('Also for anonymous users?'),
+     '#default_value' => variable_get('saveguard_anonymous', 1),
+   );
++  $saveguard_mode = variable_get('saveguard_mode', SAVEGUARD_MODE_ALL);
++  $form['saveguard_mode'] = array(
++    '#type' => 'radios',
++    '#title' => t('Where it should apply'),
++    '#description' => t('Specify on which forms you want to apply the <strong>SaveGuard</strong>.'),
++    '#options' => array(
++      SAVEGUARD_MODE_ALL => t('All forms'),
++      SAVEGUARD_MODE_INCLUDE => t("Specify <strong>form_id</strong>'s"),
++      SAVEGUARD_MODE_EXCLUDE => t("All forms except these <strong>form_id</strong>'s"),
++    ),
++    '#default_value' => $saveguard_mode,
++    '#ajax' => array(
++      'callback' => 'saveguard_change_mode',
++      'wrapper' => 'forms-all-lists',
++      'method' => 'replace',
++      'effect' => 'fade',
++    ),
++  );
++  $saveguard_include_forms = variable_get('saveguard_include_forms', '');
++  $saveguard_exclude_forms = variable_get('saveguard_exclude_forms', '');
++  $form['saveguard_forms_container'] = array(
++    '#type' => 'container',
++    '#prefix' => '<div id="forms-all-lists">',
++    '#suffix' => '</div>',
++  );
++  $form['saveguard_forms_container']['saveguard_include_forms'] = array(
++    '#type' => 'hidden',
++    '#default_value' => $saveguard_include_forms,
++  );
++  $form['saveguard_forms_container']['saveguard_exclude_forms'] = array(
++    '#type' => 'hidden',
++    '#default_value' => $saveguard_exclude_forms,
++  );
++
++  if ((isset($form_state['values']['saveguard_mode']) && $form_state['values']['saveguard_mode'] == SAVEGUARD_MODE_INCLUDE) || (!isset($form_state['values']['saveguard_mode']) && $saveguard_mode == SAVEGUARD_MODE_INCLUDE)) {
++    $form['saveguard_forms_container']['saveguard_include_forms'] = array(
++      '#type' => 'textarea',
++      '#title' => t("List of form_id's"),
++      '#description' => t("Specify a list of all form_id's where you want SaveGuard to apply."),
++      '#default_value' => $saveguard_include_forms,
++    );
++  }
++  if ((isset($form_state['values']['saveguard_mode']) && $form_state['values']['saveguard_mode'] == SAVEGUARD_MODE_EXCLUDE) || (!isset($form_state['values']['saveguard_mode']) && $saveguard_mode == SAVEGUARD_MODE_EXCLUDE)) {
++    $form['saveguard_forms_container']['saveguard_exclude_forms'] = array(
++      '#type' => 'textarea',
++      '#title' => t("List of form_id's exceptions"),
++      '#description' => t("Specify a list of exceptions (form_ids) where you want SaveGuard not to apply."),
++      '#default_value' => $saveguard_exclude_forms,
++    );
++  }
+ 
+   return system_settings_form($form);
+ }
+ 
++/**
++ * AJAX Callback for the radios choice.
++ */
++function saveguard_change_mode($form, $form_state) {
++  return $form['saveguard_forms_container'];
++}
+ 
+ /**
+  * Implements hook_form_alter().
+@@ -55,6 +114,37 @@ function saveguard_admin_settings() {
+  *    array with form structure
+  */
+ function saveguard_form_alter(&$form, &$form_state, $form_id) {
++  switch (variable_get('saveguard_mode', SAVEGUARD_MODE_ALL)) {
++    case SAVEGUARD_MODE_ALL:
++      // We simply apply to all forms (default).
++      _saveguard_add_form_guard($form);
++      break;
++
++    case SAVEGUARD_MODE_INCLUDE:
++      // We apply only to specified form_id's.
++      $saveguard_include_forms = list_extract_allowed_values(variable_get('saveguard_include_forms', ''), 'list_number', TRUE);
++      if (count($saveguard_include_forms) > 0 && in_array($form_id, $saveguard_include_forms)) {
++        _saveguard_add_form_guard($form);
++      }
++      break;
++
++    case SAVEGUARD_MODE_EXCLUDE:
++      // We apply to all forms except the specified form_ids.
++      $saveguard_exclude_forms = list_extract_allowed_values(variable_get('saveguard_exclude_forms', ''), 'list_number', TRUE);
++      if (!in_array($form_id, $saveguard_exclude_forms)) {
++        _saveguard_add_form_guard($form);
++      }
++      break;
++  }
++}
++
++/**
++ * Private function that adds the saveguard itself.
++ *
++ * @param array $form
++ *   Form to attach saveguard.
++ */
++function _saveguard_add_form_guard(&$form) {
+   static $done;
+ 
+   if ($GLOBALS['user']->uid == 0 && !variable_get('saveguard_anonymous', 1)) {
