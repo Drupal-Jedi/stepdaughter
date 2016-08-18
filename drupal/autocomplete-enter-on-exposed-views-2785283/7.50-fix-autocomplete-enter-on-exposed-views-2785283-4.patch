@@ -1,5 +1,5 @@
 diff --git a/misc/autocomplete.js b/misc/autocomplete.js
-index d71441b..570d26d 100644
+index d71441b..0870017 100644
 --- a/misc/autocomplete.js
 +++ b/misc/autocomplete.js
 @@ -14,7 +14,9 @@ Drupal.behaviors.autocomplete = {
@@ -13,7 +13,7 @@ index d71441b..570d26d 100644
        $input.parent()
          .attr('role', 'application')
          .append($('<span class="element-invisible" aria-live="assertive"></span>')
-@@ -29,10 +31,16 @@ Drupal.behaviors.autocomplete = {
+@@ -29,10 +31,19 @@ Drupal.behaviors.autocomplete = {
   * Prevents the form from submitting if the suggestions popup is open
   * and closes the suggestions popup when doing so.
   */
@@ -28,9 +28,12 @@ index d71441b..570d26d 100644
 +    });
 +
 +    // Make sure that all events prevented. Regular preventDefault is not enough.
-+    event.stopImmediatePropagation();
++    if (event) {
++      event.stopImmediatePropagation();
++    }
 +    return false;
 +  }
++  return true;
  };
  
  /**
