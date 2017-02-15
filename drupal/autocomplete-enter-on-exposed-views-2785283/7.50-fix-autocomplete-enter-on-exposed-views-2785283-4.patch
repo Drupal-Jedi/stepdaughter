@@ -1,0 +1,39 @@
+diff --git a/misc/autocomplete.js b/misc/autocomplete.js
+index d71441b..0870017 100644
+--- a/misc/autocomplete.js
++++ b/misc/autocomplete.js
+@@ -14,7 +14,9 @@ Drupal.behaviors.autocomplete = {
+       var $input = $('#' + this.id.substr(0, this.id.length - 13))
+         .attr('autocomplete', 'OFF')
+         .attr('aria-autocomplete', 'list');
+-      $($input[0].form).submit(Drupal.autocompleteSubmit);
++      $($input[0].form).once().submit(Drupal.autocompleteSubmit);
++      // Because we have inputs with ajax, we need also to catch click events to prevent them if needed.
++      $('input[type="submit"]', $input[0].form).once().click(Drupal.autocompleteSubmit);
+       $input.parent()
+         .attr('role', 'application')
+         .append($('<span class="element-invisible" aria-live="assertive"></span>')
+@@ -29,10 +31,19 @@ Drupal.behaviors.autocomplete = {
+  * Prevents the form from submitting if the suggestions popup is open
+  * and closes the suggestions popup when doing so.
+  */
+-Drupal.autocompleteSubmit = function () {
+-  return $('#autocomplete').each(function () {
+-    this.owner.hidePopup();
+-  }).length == 0;
++Drupal.autocompleteSubmit = function (event) {
++  if ($('#autocomplete').length) {
++    $('#autocomplete').each(function () {
++      this.owner.hidePopup();
++    });
++
++    // Make sure that all events prevented. Regular preventDefault is not enough.
++    if (event) {
++      event.stopImmediatePropagation();
++    }
++    return false;
++  }
++  return true;
+ };
+ 
+ /**

@@ -1,0 +1,22 @@
+diff --git a/js/modal.js b/js/modal.js
+index 634595f..a720684 100644
+--- a/js/modal.js
++++ b/js/modal.js
+@@ -587,7 +587,7 @@
+       $('body').unbind( 'keypress', modalEventHandler );
+       $('body').unbind( 'keydown', modalTabTrapHandler );
+       $('.close').unbind('click', modalContentClose);
+-      $('body').unbind('keypress', modalEventEscapeCloseHandler);
++      $(document).unbind('keydown', modalEventEscapeCloseHandler);
+       $(document).trigger('CToolsDetachBehaviors', $('#modalContent'));
+ 
+       // Set our animation parameters and use them
+@@ -663,7 +663,7 @@
+     $('body').unbind('keypress', modalEventHandler);
+     $('body').unbind( 'keydown', modalTabTrapHandler );
+     $('.close').unbind('click', modalContentClose);
+-    $('body').unbind('keypress', modalEventEscapeCloseHandler);
++    $(document).unbind('keydown', modalEventEscapeCloseHandler);
+     $(document).trigger('CToolsDetachBehaviors', $('#modalContent'));
+ 
+     // jQuery magic loop through the instances and run the animations or removal.
