@@ -1,0 +1,40 @@
+diff --git a/plugins/views_plugin_exposed_form.inc b/plugins/views_plugin_exposed_form.inc
+index 5d54600..bf40275 100644
+--- a/plugins/views_plugin_exposed_form.inc
++++ b/plugins/views_plugin_exposed_form.inc
+@@ -129,6 +129,13 @@ class views_plugin_exposed_form extends views_plugin {
+   }
+ 
+   /**
++   * Check if any of filters were applied and we need to process form.
++   */
++  function exposed_filter_applied() {
++    return TRUE;
++  }
++
++  /**
+    * Render the exposed filter form.
+    *
+    * This actually does more than that; because it's using FAPI, the form will
+@@ -143,7 +150,7 @@ class views_plugin_exposed_form extends views_plugin {
+       'method' => 'get',
+       'rerender' => TRUE,
+       'no_redirect' => TRUE,
+-      'always_process' => TRUE,
++      'always_process' => $this->exposed_filter_applied(),
+     );
+ 
+     // Some types of displays (eg. attachments) may wish to use the exposed
+diff --git a/plugins/views_plugin_exposed_form_input_required.inc b/plugins/views_plugin_exposed_form_input_required.inc
+index ca97674..ae6815f 100644
+--- a/plugins/views_plugin_exposed_form_input_required.inc
++++ b/plugins/views_plugin_exposed_form_input_required.inc
+@@ -43,6 +43,8 @@ class views_plugin_exposed_form_input_required extends views_plugin_exposed_form
+     static $cache = NULL;
+     if (!isset($cache)) {
+       $view = $this->view;
++      // Ensure if exposed data is available on early stage.
++      $view->get_exposed_input();
+       if (is_array($view->filter) && count($view->filter)) {
+         foreach ($view->filter as $filter_id => $filter) {
+           if ($filter->is_exposed()) {
