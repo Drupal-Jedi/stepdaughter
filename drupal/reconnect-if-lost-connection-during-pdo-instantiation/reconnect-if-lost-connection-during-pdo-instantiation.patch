@@ -1,0 +1,146 @@
+diff --git a/core/lib/Drupal/Core/Database/Connection.php b/core/lib/Drupal/Core/Database/Connection.php
+index 791bf7a..a1fa267 100644
+--- a/core/lib/Drupal/Core/Database/Connection.php
++++ b/core/lib/Drupal/Core/Database/Connection.php
+@@ -637,6 +637,62 @@ public function query($query, array $args = array(), $options = array()) {
+   }
+
+   /**
++   * Handle a query exception that occurred during query execution.
++   *
++   * @param  \PDOException  $e
++   * @param  string    $query
++   * @param  array     $args
++   * @param  array     $options
++   * @return mixed
++   *
++   * @throws \PDOException
++   */
++  protected function tryAgainIfCausedByLostConnection(\PDOException $e, $query, $args, $options) {
++    if ($this->causedByLostConnection($e)) {
++      $current_query_target = $this->getTarget();
++      $current_query_key = $this->getTarget();
++      // Try to reconnect to database.
++      \Drupal\Core\Database\Database::removeConnection($current_query_key);
++      \Drupal\Core\Database\Database::addConnectionInfo($current_query_key, $current_query_target, $this->getConnectionOptions());
++      $this->connection = \Drupal\Core\Database\Database::getConnection($current_query_target, $current_query_key)->connection;
++
++      return $this->query($query, $args, $options);
++    }
++
++    // Unset transaction depth counter in case if it's not connection problem.
++    unset($this->transaction_depth);
++    $this->throwQueryException($e, $query, $args, $options);
++
++    return NULL;
++  }
++
++  /**
++   * Determine if the given exception was caused by a lost connection.
++   *
++   * @param  \Exception  $e
++   * @return bool
++   */
++  protected function causedByLostConnection(\Exception $e) {
++    $message = $e->getMessage();
++    $messages = [
++      'server has gone away',
++      'no connection to the server',
++      'Lost connection',
++      'is dead or not enabled',
++      'Error while sending',
++      'decryption failed or bad record mac',
++      'server closed the connection unexpectedly',
++      'SSL connection has been closed unexpectedly',
++      'Error writing data to the connection',
++      'Resource deadlock avoided',
++    ];
++
++    return (bool) !empty(array_filter($messages, function($item) use ($message) {
++      return (bool) (strpos($message, $item) !== FALSE);
++    }));
++  }
++
++  /**
+    * Wraps and re-throws any PDO exception thrown by static::query().
+    *
+    * @param \PDOException $e
+@@ -657,27 +713,64 @@ public function query($query, array $args = array(), $options = array()) {
+    * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
+    */
+   protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
+-    if ($options['throw_exception']) {
+-      // Wrap the exception in another exception, because PHP does not allow
+-      // overriding Exception::getMessage(). Its message is the extra database
+-      // debug information.
+-      $query_string = ($query instanceof StatementInterface) ? $query->getQueryString() : $query;
+-      $message = $e->getMessage() . ": " . $query_string . "; " . print_r($args, TRUE);
+-      // Match all SQLSTATE 23xxx errors.
+-      if (substr($e->getCode(), -6, -3) == '23') {
+-        $exception = new IntegrityConstraintViolationException($message, $e->getCode(), $e);
+-      }
+-      else {
+-        $exception = new DatabaseExceptionWrapper($message, 0, $e);
+-      }
++    if (!isset($this->transaction_depth)) {
++      $this->transaction_depth = 0;
++    }
+
+-      throw $exception;
++    if ($this->transaction_depth >= 1) {
++      if ($options['throw_exception']) {
++        // Unset transaction depth counter in case if limit is exceeded.
++        unset($this->transaction_depth);
++        // Throw query exception.
++        $this->throwQueryException($e, $query, $args, $options);
++      }
++      return NULL;
+     }
+
++    $this->transaction_depth++;
++    $this->tryAgainIfCausedByLostConnection($e, $query, $args, $options);
++
+     return NULL;
+   }
+
+   /**
++   * Throw query exception.
++   *
++   * @param \PDOException $e
++   *   The exception thrown by static::query().
++   * @param $query
++   *   The query executed by static::query().
++   * @param array $args
++   *   An array of arguments for the prepared statement.
++   * @param array $options
++   *   An associative array of options to control how the query is run.
++   *
++   * @return \Drupal\Core\Database\StatementInterface|int|null
++   *   Most database drivers will return NULL when a PDO exception is thrown for
++   *   a query, but some of them may need to re-run the query, so they can also
++   *   return a \Drupal\Core\Database\StatementInterface object or an integer.
++   *
++   * @throws \Drupal\Core\Database\DatabaseExceptionWrapper
++   * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
++   */
++  protected function throwQueryException($e, $query, array $args = array(), $options = array()) {
++    // Wrap the exception in another exception, because PHP does not allow
++    // overriding Exception::getMessage(). Its message is the extra database
++    // debug information.
++    $query_string = ($query instanceof StatementInterface) ? $query->getQueryString() : $query;
++    $message = $e->getMessage() . ": " . $query_string . "; " . print_r($args, TRUE);
++    // Match all SQLSTATE 23xxx errors.
++    if (substr($e->getCode(), -6, -3) == '23') {
++      $exception = new IntegrityConstraintViolationException($message, $e->getCode(), $e);
++    }
++    else {
++      $exception = new DatabaseExceptionWrapper($message, 0, $e);
++    }
++
++    throw $exception;
++  }
++
++  /**
+    * Expands out shorthand placeholders.
+    *
+    * Drupal supports an alternate syntax for doing arrays of values. We

@@ -1,4 +1,4 @@
-# Stepdaughter
+# Stepdaughter (Drupal 8)
 Stepdaughter project is a curated list of actual per-version patches for Drupal core and modules.
 
 Sometimes it happens that important from your point of view patch stack in waiting of RTBC. 
