@@ -1,5 +1,5 @@
 diff --git a/core/lib/Drupal/Core/Database/Connection.php b/core/lib/Drupal/Core/Database/Connection.php
-index 791bf7a..a1fa267 100644
+index 791bf7a..2525a36 100644
 --- a/core/lib/Drupal/Core/Database/Connection.php
 +++ b/core/lib/Drupal/Core/Database/Connection.php
 @@ -637,6 +637,62 @@ public function query($query, array $args = array(), $options = array()) {
@@ -23,7 +23,8 @@ index 791bf7a..a1fa267 100644
 +      // Try to reconnect to database.
 +      \Drupal\Core\Database\Database::removeConnection($current_query_key);
 +      \Drupal\Core\Database\Database::addConnectionInfo($current_query_key, $current_query_target, $this->getConnectionOptions());
-+      $this->connection = \Drupal\Core\Database\Database::getConnection($current_query_target, $current_query_key)->connection;
++      $new_connection = \Drupal\Core\Database\Database::getConnection($current_query_target, $current_query_key);
++      $this->connection = $new_connection->connection;
 +
 +      return $this->query($query, $args, $options);
 +    }
@@ -55,7 +56,6 @@ index 791bf7a..a1fa267 100644
 +      'Error writing data to the connection',
 +      'Resource deadlock avoided',
 +    ];
-+
 +    return (bool) !empty(array_filter($messages, function($item) use ($message) {
 +      return (bool) (strpos($message, $item) !== FALSE);
 +    }));
@@ -65,7 +65,7 @@ index 791bf7a..a1fa267 100644
     * Wraps and re-throws any PDO exception thrown by static::query().
     *
     * @param \PDOException $e
-@@ -657,27 +713,64 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -657,24 +713,59 @@ public function query($query, array $args = array(), $options = array()) {
     * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
     */
    protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
@@ -81,29 +81,26 @@ index 791bf7a..a1fa267 100644
 -      }
 -      else {
 -        $exception = new DatabaseExceptionWrapper($message, 0, $e);
--      }
 +    if (!isset($this->transaction_depth)) {
 +      $this->transaction_depth = 0;
 +    }
-
--      throw $exception;
++
 +    if ($this->transaction_depth >= 1) {
 +      if ($options['throw_exception']) {
 +        // Unset transaction depth counter in case if limit is exceeded.
 +        unset($this->transaction_depth);
 +        // Throw query exception.
 +        $this->throwQueryException($e, $query, $args, $options);
-+      }
+       }
 +      return NULL;
-     }
-
-+    $this->transaction_depth++;
-+    $this->tryAgainIfCausedByLostConnection($e, $query, $args, $options);
++    }
 +
-     return NULL;
-   }
++    $this->transaction_depth++;
++    return $this->tryAgainIfCausedByLostConnection($e, $query, $args, $options);
++  }
 
-   /**
+-      throw $exception;
++  /**
 +   * Throw query exception.
 +   *
 +   * @param \PDOException $e
@@ -135,12 +132,10 @@ index 791bf7a..a1fa267 100644
 +    }
 +    else {
 +      $exception = new DatabaseExceptionWrapper($message, 0, $e);
-+    }
-+
+     }
+
+-    return NULL;
 +    throw $exception;
-+  }
-+
-+  /**
-    * Expands out shorthand placeholders.
-    *
-    * Drupal supports an alternate syntax for doing arrays of values. We
+   }
+
+   /**
