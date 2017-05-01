@@ -14,10 +14,18 @@ index 71895b2..d7e347b 100644
    _drupal_error_handler_real($error_level, $message, $filename, $line, $context);
  }
 diff --git a/core/lib/Drupal/Core/Database/Connection.php b/core/lib/Drupal/Core/Database/Connection.php
-index 791bf7a..8a65902 100644
+index 791bf7a..822e380 100644
 --- a/core/lib/Drupal/Core/Database/Connection.php
 +++ b/core/lib/Drupal/Core/Database/Connection.php
-@@ -637,6 +637,60 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -632,11 +632,67 @@ public function query($query, array $args = array(), $options = array()) {
+       // Most database drivers will return NULL here, but some of them
+       // (e.g. the SQLite driver) may need to re-run the query, so the return
+       // value will be the same as for static::query().
+-      return $this->handleQueryException($e, $query, $args, $options);
++      $return = $this->handleQueryException($e, $query, $args, $options);
++      unset($this->transaction_depth);
++      return $return;
+     }
    }
 
    /**
@@ -40,13 +48,13 @@ index 791bf7a..8a65902 100644
 +      \Drupal\Core\Database\Database::addConnectionInfo($current_query_key, $current_query_target, $this->getConnectionOptions());
 +      $new_connection = \Drupal\Core\Database\Database::getConnection($current_query_target, $current_query_key);
 +      $this->connection = $new_connection->connection;
-+      return $this->query($query, $args, $options);
++      $result = $this->query($query, $args, $options);
++      return $result;
 +    }
 +
 +    // Unset transaction depth counter in case if it's not connection problem.
 +    unset($this->transaction_depth);
 +    $this->throwQueryException($e, $query, $args, $options);
-+
 +    return NULL;
 +  }
 +
@@ -78,7 +86,7 @@ index 791bf7a..8a65902 100644
     * Wraps and re-throws any PDO exception thrown by static::query().
     *
     * @param \PDOException $e
-@@ -657,24 +711,59 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -657,24 +713,59 @@ public function query($query, array $args = array(), $options = array()) {
     * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
     */
    protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
