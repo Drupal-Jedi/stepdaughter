@@ -1,8 +1,23 @@
+diff --git a/core/includes/bootstrap.inc b/core/includes/bootstrap.inc
+index 71895b2..d7e347b 100644
+--- a/core/includes/bootstrap.inc
++++ b/core/includes/bootstrap.inc
+@@ -544,6 +544,10 @@ function drupal_get_user_timezone() {
+  *   occurred.
+  */
+ function _drupal_error_handler($error_level, $message, $filename, $line, $context) {
++  if (class_exists(Drupal\Core\Database\Connection::class)
++    && Drupal\Core\Database\Connection::causedByLostConnection($message)) {
++    throw new PDOException($message);
++  }
+   require_once __DIR__ . '/errors.inc';
+   _drupal_error_handler_real($error_level, $message, $filename, $line, $context);
+ }
 diff --git a/core/lib/Drupal/Core/Database/Connection.php b/core/lib/Drupal/Core/Database/Connection.php
-index 791bf7a..2525a36 100644
+index 791bf7a..8a65902 100644
 --- a/core/lib/Drupal/Core/Database/Connection.php
 +++ b/core/lib/Drupal/Core/Database/Connection.php
-@@ -637,6 +637,62 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -637,6 +637,60 @@ public function query($query, array $args = array(), $options = array()) {
    }
 
    /**
@@ -17,7 +32,7 @@ index 791bf7a..2525a36 100644
 +   * @throws \PDOException
 +   */
 +  protected function tryAgainIfCausedByLostConnection(\PDOException $e, $query, $args, $options) {
-+    if ($this->causedByLostConnection($e)) {
++    if (self::causedByLostConnection($e->getMessage())) {
 +      $current_query_target = $this->getTarget();
 +      $current_query_key = $this->getTarget();
 +      // Try to reconnect to database.
@@ -25,7 +40,6 @@ index 791bf7a..2525a36 100644
 +      \Drupal\Core\Database\Database::addConnectionInfo($current_query_key, $current_query_target, $this->getConnectionOptions());
 +      $new_connection = \Drupal\Core\Database\Database::getConnection($current_query_target, $current_query_key);
 +      $this->connection = $new_connection->connection;
-+
 +      return $this->query($query, $args, $options);
 +    }
 +
@@ -42,8 +56,7 @@ index 791bf7a..2525a36 100644
 +   * @param  \Exception  $e
 +   * @return bool
 +   */
-+  protected function causedByLostConnection(\Exception $e) {
-+    $message = $e->getMessage();
++  public static function causedByLostConnection($message) {
 +    $messages = [
 +      'server has gone away',
 +      'no connection to the server',
@@ -65,7 +78,7 @@ index 791bf7a..2525a36 100644
     * Wraps and re-throws any PDO exception thrown by static::query().
     *
     * @param \PDOException $e
-@@ -657,24 +713,59 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -657,24 +711,59 @@ public function query($query, array $args = array(), $options = array()) {
     * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
     */
    protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
