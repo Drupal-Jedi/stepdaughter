@@ -1,7 +1,7 @@
-diff --git a/core/includes/bootstrap.inc b/core/includes/bootstrap.inc
+diff --git a/includes/bootstrap.inc b/includes/bootstrap.inc
 index 71895b2..d7e347b 100644
---- a/core/includes/bootstrap.inc
-+++ b/core/includes/bootstrap.inc
+--- a/includes/bootstrap.inc
++++ b/includes/bootstrap.inc
 @@ -544,6 +544,10 @@ function drupal_get_user_timezone() {
   *   occurred.
   */
@@ -13,10 +13,10 @@ index 71895b2..d7e347b 100644
    require_once __DIR__ . '/errors.inc';
    _drupal_error_handler_real($error_level, $message, $filename, $line, $context);
  }
-diff --git a/core/lib/Drupal/Core/Database/Connection.php b/core/lib/Drupal/Core/Database/Connection.php
+diff --git a/lib/Drupal/Core/Database/Connection.php b/lib/Drupal/Core/Database/Connection.php
 index 791bf7a..822e380 100644
---- a/core/lib/Drupal/Core/Database/Connection.php
-+++ b/core/lib/Drupal/Core/Database/Connection.php
+--- a/lib/Drupal/Core/Database/Connection.php
++++ b/lib/Drupal/Core/Database/Connection.php
 @@ -632,11 +632,67 @@ public function query($query, array $args = array(), $options = array()) {
        // Most database drivers will return NULL here, but some of them
        // (e.g. the SQLite driver) may need to re-run the query, so the return
