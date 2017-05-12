@@ -1,8 +1,8 @@
-diff --git a/includes/bootstrap.inc b/includes/bootstrap.inc
-index 71895b2..d7e347b 100644
+diff --git a/includes/bootstrap.inc b/core/includes/bootstrap.inc
+index 52f5742..57c5fe2 100644
 --- a/includes/bootstrap.inc
 +++ b/includes/bootstrap.inc
-@@ -544,6 +544,10 @@ function drupal_get_user_timezone() {
+@@ -562,6 +562,10 @@ function drupal_get_user_timezone() {
   *   occurred.
   */
  function _drupal_error_handler($error_level, $message, $filename, $line, $context) {
@@ -14,10 +14,10 @@ index 71895b2..d7e347b 100644
    _drupal_error_handler_real($error_level, $message, $filename, $line, $context);
  }
 diff --git a/lib/Drupal/Core/Database/Connection.php b/lib/Drupal/Core/Database/Connection.php
-index 791bf7a..822e380 100644
+index 803689b..da19a7f 100644
 --- a/lib/Drupal/Core/Database/Connection.php
 +++ b/lib/Drupal/Core/Database/Connection.php
-@@ -632,11 +632,67 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -646,11 +646,67 @@ public function query($query, array $args = [], $options = []) {
        // Most database drivers will return NULL here, but some of them
        // (e.g. the SQLite driver) may need to re-run the query, so the return
        // value will be the same as for static::query().
@@ -86,10 +86,10 @@ index 791bf7a..822e380 100644
     * Wraps and re-throws any PDO exception thrown by static::query().
     *
     * @param \PDOException $e
-@@ -657,24 +713,59 @@ public function query($query, array $args = array(), $options = array()) {
+@@ -671,24 +727,59 @@ public function query($query, array $args = [], $options = []) {
     * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
     */
-   protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
+   protected function handleQueryException(\PDOException $e, $query, array $args = [], $options = []) {
 -    if ($options['throw_exception']) {
 -      // Wrap the exception in another exception, because PHP does not allow
 -      // overriding Exception::getMessage(). Its message is the extra database
